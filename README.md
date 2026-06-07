@@ -1,8 +1,10 @@
 # VINGEL — Market Simulator
 
+**Created by: Sumit Kumar, Aman Mishra, and Nakul Varshney**
+
 Turn any product idea into a data-driven market forecast in under 30 seconds.
 
-**Sarvam AI** generates assumptions and customer segments · **NumPy vectorized engine** runs 100k synthetic users through a 24-month adoption funnel · **Monte Carlo** produces P10/P50/P90 revenue uncertainty bands · **Monad blockchain** anchors simulation hashes on-chain · **Local encrypted vault** stores product inputs securely · **Neo4j graph** visualises the population live.
+**Sarvam AI** generates assumptions and customer segments · **NumPy vectorized engine** runs 100k synthetic users through a 24-month adoption funnel · **Monte Carlo** produces P10/P50/P90 revenue uncertainty bands · **Monad blockchain** anchors simulation hashes on-chain (via API) · **Neo4j graph** visualises the population live.
 
 ---
 
@@ -35,7 +37,6 @@ The frontend is a multi-page Streamlit app. A sidebar navigation section links a
 | 👥 Customers | `/customers` | Active customers over time + new-vs-churned bar chart |
 | 🎯 Segments | `/segments` | Adoption per segment + behavioral parameters table |
 | ⚙️ Assumptions | `/assumptions` | 8 AI-generated KPIs + product profile radar chart |
-| 🔒 Vault | `/vault` | Local encrypted ledger + Monad on-chain anchoring |
 | 🌐 Graph | `/graph` | Live Neo4j population graph rendered with pyvis |
 
 ---
@@ -200,7 +201,9 @@ MONAD_PRIVATE_KEY=0x...               # your wallet private key for publishing
 
 ## Monad Blockchain Integration
 
-The **Vault** page lets you anchor a simulation's SHA-256 block hash on the Monad testnet, creating cryptographic proof that your analysis existed at a specific point in time. Only the hash goes on-chain — encrypted data never leaves your machine.
+*Note: The Vault and Verify UI tabs were removed to streamline the dashboard, but the underlying Monad blockchain anchoring system remains fully functional via API.*
+
+You can anchor a simulation's SHA-256 block hash on the Monad testnet, creating cryptographic proof that your analysis existed at a specific point in time. Only the hash goes on-chain — encrypted data never leaves your machine.
 
 ### Smart contract — `VingelVault.sol`
 
@@ -343,14 +346,16 @@ churn_rate_monthly         0.01–0.15  monthly customer churn rate
 
 ### Step 2 — Customer Segments
 
-**With Sarvam AI** — 4 segments tailored to the product. **Without** — B2B or consumer defaults:
+**With Sarvam AI** — Tailored segments based on the product. **Without** — B2B or consumer defaults expanded to **8 diverse segments** for rich, beautiful graph data:
 
-| Segment | Share | Profile |
+| Example Segments | Share | Profile |
 |---------|-------|---------|
-| Power Users / Early Adopters | 15% | High urgency, low trust barrier |
-| Pragmatic Professionals | 40% | Moderate values, social-proof driven |
-| Value Seekers | 30% | High price sensitivity, need clear ROI |
-| Late Majority | 15% | Low tech affinity, high competitor loyalty |
+| Power Users / Early Adopters | 10-15% | High urgency, low trust barrier |
+| Pragmatic Professionals | 25-40% | Moderate values, social-proof driven |
+| Value Seekers / Bargain Hunters | 20-30% | High price sensitivity, need clear ROI |
+| Trendsetters & Innovators | 5-10% | Highly networked, testing bleeding-edge tech |
+| Skeptical Traditionalists | 5-10% | Deeply loyal to legacy software, hard to convert |
+| Late Majority | 10-15% | Low tech affinity, high competitor loyalty |
 
 ### Step 3 — Synthetic Population (100k users)
 
