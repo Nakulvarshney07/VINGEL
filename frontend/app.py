@@ -2,6 +2,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import requests
 import pandas as pd
+import os
 
 from components.styles   import inject_styles, inject_effects
 from components.sidebar  import render_sidebar
@@ -124,7 +125,7 @@ canvas{{position:absolute;inset:0;width:100%;height:100%}}
 }})();
 </script></body></html>"""
 
-BACKEND = "http://localhost:8000"
+BACKEND = os.environ.get("BACKEND_URL", "http://localhost:8000")
 
 st.set_page_config(
     page_title="VINGEL — Market Simulator",

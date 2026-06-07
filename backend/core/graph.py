@@ -21,7 +21,7 @@ import numpy as np
 from backend.core.config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD, USE_NEO4J
 
 _STATUS_LABELS = {0: "unaware", 1: "aware", 2: "active", 3: "churned"}
-_SEGMENT_COLORS = ["#818cf8", "#34d399", "#fbbf24", "#f472b6"]
+_SEGMENT_COLORS = ["#818cf8", "#34d399", "#fbbf24", "#f472b6", "#a855f7", "#0ea5e9", "#f97316", "#14b8a6"]
 
 _driver = None
 

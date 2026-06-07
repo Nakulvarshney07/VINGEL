@@ -4,8 +4,9 @@ from components.landing import render_landing
 from components.charts import get_chart_theme
 from components.tab_graph import render_graph_preview
 import plotly.graph_objects as go
+import os
 
-BACKEND = "http://localhost:8000"
+BACKEND = os.environ.get("BACKEND_URL", "http://localhost:8000")
 
 result = st.session_state.get("result")
 if not result:

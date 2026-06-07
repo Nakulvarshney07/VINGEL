@@ -1,8 +1,9 @@
-import streamlit as st
 import requests
+import os
+import streamlit as st
 from datetime import datetime
 
-BACKEND = "http://localhost:8000"
+BACKEND = os.environ.get("BACKEND_URL", "http://localhost:8000")
 
 st.markdown('<div class="vg-section-head">🔍 On-Chain Proof Verification</div>', unsafe_allow_html=True)
 st.write(

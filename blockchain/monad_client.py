@@ -234,7 +234,7 @@ class MonadClient:
 
         try:
             from web3 import Web3  # type: ignore
-            w3 = Web3(Web3.HTTPProvider(self.rpc_url))
+            w3 = Web3(Web3.HTTPProvider(self.rpc_url, request_kwargs={'timeout': 15}))
             try:
                 from web3.middleware import ExtraDataToPOAMiddleware  # type: ignore
                 w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
@@ -391,6 +391,19 @@ class MonadClient:
             self._init_web3()
         if self._w3 is None:
             raise RuntimeError("web3 init failed — check your RPC URL and private key.")
+
+        # Check balance of backend signing wallet
+        try:
+            bal = self._w3.eth.get_balance(self._acct.address) / 1e18
+            if bal <= 0:
+                raise RuntimeError(
+                    f"Backend wallet ({self._acct.address}) has 0 MON.\n"
+                    f"Please fund it with testnet MON at https://faucet.monad.xyz to pay for transaction gas."
+                )
+        except Exception as e:
+            if "has 0 MON" in str(e):
+                raise e
+            pass
 
         from web3 import Web3
 
@@ -649,7 +662,7 @@ class SimGateClient:
 
         try:
             from web3 import Web3  # type: ignore
-            w3 = Web3(Web3.HTTPProvider(self.rpc_url))
+            w3 = Web3(Web3.HTTPProvider(self.rpc_url, request_kwargs={'timeout': 15}))
             try:
                 from web3.middleware import ExtraDataToPOAMiddleware  # type: ignore
                 w3.middleware_onion.inject(ExtraDataToPOAMiddleware, layer=0)
@@ -795,6 +808,19 @@ class SimGateClient:
             self._init_web3()
         if self._w3 is None:
             raise RuntimeError("web3 init failed — check MONAD_RPC_URL and MONAD_PRIVATE_KEY.")
+
+        # Check balance of backend signing wallet
+        try:
+            bal = self._w3.eth.get_balance(self._acct.address) / 1e18
+            if bal <= 0:
+                raise RuntimeError(
+                    f"Backend wallet ({self._acct.address}) has 0 MON.\n"
+                    f"Please fund it with testnet MON at https://faucet.monad.xyz to pay for transaction gas."
+                )
+        except Exception as e:
+            if "has 0 MON" in str(e):
+                raise e
+            pass
 
     def request_simulation(self, user_address: str, product_hash_hex: str) -> dict:
         """

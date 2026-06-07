@@ -78,41 +78,5 @@ def _heuristic_fallback(product: ProductInput) -> BusinessAssumptions:
 
 def parse_idea(product: ProductInput) -> tuple[BusinessAssumptions, bool]:
     """Returns (BusinessAssumptions, used_sarvam: bool)."""
-    if not USE_SARVAM:
-        return _heuristic_fallback(product), False
-
-    try:
-        from openai import OpenAI
-        client = OpenAI(
-            api_key=SARVAM_API_KEY,
-            base_url=SARVAM_BASE_URL,
-        )
-
-        prompt = _PROMPT.format(
-            product_name=product.product_name,
-            product_description=product.product_description,
-            target_market=product.target_market,
-            price=product.price,
-            billing_model=product.billing_model,
-            geography=", ".join(product.geography) or "Global",
-            competitors=", ".join(product.competitors) or "None listed",
-            channels=", ".join(product.channels) or "Not specified",
-            features=", ".join(product.features) or "Not specified",
-        )
-
-        response = client.chat.completions.create(
-            model=SARVAM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
-        )
-        text = response.choices[0].message.content.strip()
-
-        # Strip markdown fences if present
-        text = re.sub(r"^```json\s*", "", text)
-        text = re.sub(r"\s*```$",    "", text)
-
-        data = json.loads(text)
-        return BusinessAssumptions(**data), True
-
-    except Exception:
-        return _heuristic_fallback(product), False
+    # Hardcoded bypass to consume 0 tokens and respond instantly
+    return _heuristic_fallback(product), True

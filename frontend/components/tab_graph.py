@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 import pandas as pd
 import requests
 
-_SEG_COLORS    = ["#818cf8", "#34d399", "#fbbf24", "#f472b6"]
+_SEG_COLORS    = ["#818cf8", "#34d399", "#fbbf24", "#f472b6", "#a855f7", "#0ea5e9", "#f97316", "#14b8a6"]
 _STATUS_COLORS = {0: "#1e2545", 1: "#38bdf8", 2: "#4ade80", 3: "#f87171"}
 _STATUS_SIZES  = {0: 5,        1: 7,        2: 12,        3: 6}
 _STATUS_LABELS = {0: "Unaware", 1: "Aware",  2: "Active ✓", 3: "Churned ✗"}

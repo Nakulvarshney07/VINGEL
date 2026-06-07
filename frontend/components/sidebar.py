@@ -7,9 +7,7 @@ _NAV_PAGES = [
     ("pages/p_customers.py",   "👥", "Customers"),
     ("pages/p_segments.py",    "🎯", "Segments"),
     ("pages/p_assumptions.py", "⚙️", "Assumptions"),
-    ("pages/p_vault.py",       "🔒", "Vault"),
     ("pages/p_graph.py",       "🌐", "Graph"),
-    ("pages/p_verify.py",      "🔍", "Verify"),
 ]
 
 
@@ -45,8 +43,31 @@ def render_sidebar(is_dark: bool = True) -> dict:
 
         # ── Product ──────────────────────────────────────────────────────
         st.markdown('<div class="sb-sec">Product</div>', unsafe_allow_html=True)
-        pf = st.session_state.get("prefill", {})
-        cf = st.session_state.get("prefill_config", {})
+        
+        # Load prefill data with high-fidelity defaults initially
+        pf = st.session_state.get("prefill")
+        if pf is None:
+            pf = {
+                "product_name": "ProjectFlow Pro",
+                "product_description": "AI-powered project management that auto-schedules tasks, detects bottlenecks, and syncs with Slack/GitHub.",
+                "target_market": "SMB software teams, 5-50 employees",
+                "price": 49.0,
+                "billing_model": "monthly_subscription",
+                "geography": ["US", "Canada", "UK"],
+                "competitors": ["Asana", "Monday.com", "Linear"],
+                "channels": ["Content SEO", "Product-led growth", "Paid LinkedIn"],
+                "features": ["AI task scheduling", "Slack integration", "GitHub sync", "Bottleneck alerts", "Team analytics dashboard"]
+            }
+            st.session_state["prefill"] = pf
+
+        cf = st.session_state.get("prefill_config")
+        if cf is None:
+            cf = {
+                "n_users": 100_000,
+                "n_months": 24,
+                "n_monte_carlo": 100
+            }
+            st.session_state["prefill_config"] = cf
 
         product_name  = st.text_input("Name",        value=pf.get("product_name",""),
                                        placeholder="e.g. ProjectFlow Pro")
@@ -106,15 +127,7 @@ def render_sidebar(is_dark: bool = True) -> dict:
         st.markdown("<div style='margin:.75rem 0'></div>", unsafe_allow_html=True)
         run_btn = st.button("Run Simulation →", type="primary", use_container_width=True)
 
-        # ── Vault ─────────────────────────────────────────────────────────
-        st.markdown('<div class="sb-sec">Vault</div>', unsafe_allow_html=True)
-        vault_owner_id = st.text_input("Owner ID",       placeholder="your@email.com")
-        vault_password = st.text_input("Vault Password", placeholder="Encryption passphrase",
-                                        type="password")
-        save_vault_btn = st.button(
-            "Save to Vault", use_container_width=True,
-            disabled="result" not in st.session_state or not vault_owner_id or not vault_password,
-        )
+        # ── Vault UI Removed per request ─────────────────────────────────
 
     return {
         "product_name":   product_name,
@@ -130,8 +143,8 @@ def render_sidebar(is_dark: bool = True) -> dict:
         "n_months":       n_months,
         "n_mc":           n_mc,
         "run_btn":        run_btn,
-        "vault_owner_id": vault_owner_id,
-        "vault_password": vault_password,
-        "save_vault_btn": save_vault_btn,
+        "vault_owner_id": "",
+        "vault_password": "",
+        "save_vault_btn": False,
         "monad_wallet":   monad_wallet,
     }
