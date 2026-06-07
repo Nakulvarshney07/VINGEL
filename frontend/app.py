@@ -9,9 +9,11 @@ from components.sidebar  import render_sidebar
 from components.kpi_row  import render_kpi_row
 
 
-def _build_sim_animation_html(is_dark: bool) -> str:
+def _build_sim_animation_html(is_dark: bool, n_users: int = 100_000) -> str:
     bg = "#07070c" if is_dark else "#f0f0f8"
     tc = "#55556a" if is_dark else "#9090b0"
+    target = n_users
+    target_label = f"{n_users // 1000}k" if n_users >= 1000 else str(n_users)
     return f"""<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
@@ -23,9 +25,13 @@ canvas{{position:absolute;inset:0;width:100%;height:100%}}
 #lbl{{position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
   font:600 10px/1 'Inter',sans-serif;letter-spacing:.09em;text-transform:uppercase;
   color:{tc};white-space:nowrap}}
+#counter{{position:absolute;top:14px;right:18px;
+  font:700 11px/1 'Inter',sans-serif;letter-spacing:.05em;
+  color:#34d399;white-space:nowrap}}
 </style></head><body>
 <canvas id="gc"></canvas>
 <div id="title">◉ Building Population Graph</div>
+<div id="counter">0 / {target_label}</div>
 <div id="lbl" id="lbl">Initialising…</div>
 <script>
 (function(){{
@@ -37,7 +43,11 @@ canvas{{position:absolute;inset:0;width:100%;height:100%}}
 
   const COLS=['#818cf8','#34d399','#fbbf24','#f472b6'];
   const ANGS=[3.93,5.50,2.36,0.79];
+  const MAX_PARTICLES=240;
+  const TARGET_USERS={target};
+  const TARGET_LABEL='{target_label}';
   let tick=0;
+  let simCount=0;
 
   const segs=ANGS.map((a,i)=>{{
     const r=Math.min(cv.width,cv.height)*0.31;
@@ -49,48 +59,84 @@ canvas{{position:absolute;inset:0;width:100%;height:100%}}
 
   const users=[];
 
-  function addUser(){{
-    const s=segs[Math.floor(Math.random()*4)];
+  function spawnUser(){{
+    const si=Math.floor(Math.random()*4);
+    const s=segs[si];
     if(s.op<0.4)return;
-    const a=Math.random()*Math.PI*2,d=32+Math.random()*68;
-    users.push({{
+    const a=Math.random()*Math.PI*2,d=28+Math.random()*80;
+    const u={{
       x:s.x+Math.cos(a)*d,y:s.y+Math.sin(a)*d,
-      c:s.c,r:1.8+Math.random()*2.8,op:0,
-      vx:(Math.random()-.5)*.25,vy:(Math.random()-.5)*.25
-    }});
+      c:s.c,r:1.6+Math.random()*3,op:0,life:0,
+      maxLife:200+Math.random()*200,
+      vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,
+      si:si
+    }};
+    if(users.length>=MAX_PARTICLES){{
+      users.shift();
+    }}
+    users.push(u);
   }}
 
   function hex2(n){{return Math.max(0,Math.min(255,Math.round(n))).toString(16).padStart(2,'0');}}
+
+  function drawConnections(){{
+    const n=Math.min(users.length,70);
+    for(let i=0;i<n;i++){{
+      for(let j=i+1;j<n;j++){{
+        const dx=users[i].x-users[j].x,dy=users[i].y-users[j].y;
+        const dist=Math.sqrt(dx*dx+dy*dy);
+        if(dist<60){{
+          const alpha=Math.floor((1-dist/60)*users[i].op*users[j].op*32);
+          cx.beginPath();cx.moveTo(users[i].x,users[i].y);cx.lineTo(users[j].x,users[j].y);
+          cx.strokeStyle=users[i].c+hex2(alpha);cx.lineWidth=0.6;cx.stroke();
+        }}
+      }}
+    }}
+  }}
 
   function draw(){{
     cx.clearRect(0,0,cv.width,cv.height);
     tick++;
     const cx2=cv.width/2,cy2=cv.height/2;
 
-    // reveal segments
     segs.forEach((s,i)=>{{
       const st=55+i*28;
       if(tick>=st)s.op=Math.min(1,(tick-st)/18);
     }});
 
-    // add users
-    if(tick>110&&users.length<160&&tick%2===0)addUser();
+    // Always spawn — particles recycle, animation never stops
+    if(tick>110&&tick%2===0){{
+      spawnUser();
+      if(simCount<TARGET_USERS){{
+        const pct=simCount/TARGET_USERS;
+        const speed=pct<0.05?200:(pct<0.25?140:(pct<0.60?80:(pct<0.90?40:12)));
+        simCount=Math.min(TARGET_USERS,simCount+speed);
+      }}
+    }}
 
-    // edges product→seg
     segs.forEach(s=>{{
       if(s.op<.01)return;
       cx.beginPath();cx.moveTo(cx2,cy2);cx.lineTo(s.x,s.y);
       cx.strokeStyle=s.c+hex2(s.op*55);cx.lineWidth=1.4;cx.stroke();
     }});
 
-    // users
-    users.forEach(u=>{{
-      u.op=Math.min(1,u.op+.045);u.x+=u.vx;u.y+=u.vy;
-      cx.beginPath();cx.arc(u.x,u.y,u.r,0,Math.PI*2);
-      cx.fillStyle=u.c+hex2(u.op*195);cx.fill();
-    }});
+    drawConnections();
 
-    // segment glow + node
+    for(let i=users.length-1;i>=0;i--){{
+      const u=users[i];
+      u.life++;
+      const fadeIn=Math.min(1,u.life/30);
+      const fadeOut=u.life>u.maxLife*0.75?1-((u.life-u.maxLife*0.75)/(u.maxLife*0.25)):1;
+      u.op=fadeIn*fadeOut;
+      u.x+=u.vx;u.y+=u.vy;
+      const seg=segs[u.si];
+      u.vx+=(seg.x-u.x)*0.00015;
+      u.vy+=(seg.y-u.y)*0.00015;
+      cx.beginPath();cx.arc(u.x,u.y,u.r,0,Math.PI*2);
+      cx.fillStyle=u.c+hex2(u.op*200);cx.fill();
+      if(u.life>u.maxLife)users.splice(i,1);
+    }}
+
     segs.forEach(s=>{{
       if(s.op<.01)return;
       const g=cx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.r*3.2);
@@ -100,7 +146,6 @@ canvas{{position:absolute;inset:0;width:100%;height:100%}}
       cx.fillStyle=s.c+hex2(s.op*255);cx.fill();
     }});
 
-    // center product node
     const pulse=1+.07*Math.sin(tick*.045);
     const pr=24*pulse;
     const og=cx.createRadialGradient(cx2,cy2,0,cx2,cy2,pr*2.8);
@@ -110,13 +155,18 @@ canvas{{position:absolute;inset:0;width:100%;height:100%}}
     ig.addColorStop(0,'#fde68a');ig.addColorStop(1,'#f59e0b');
     cx.beginPath();cx.arc(cx2,cy2,pr,0,Math.PI*2);cx.fillStyle=ig;cx.fill();
 
-    // label
     const lbl=document.getElementById('lbl');
+    const ctr=document.getElementById('counter');
     if(lbl){{
       if(tick<55)lbl.textContent='Initialising product node…';
       else if(users.length<8)lbl.textContent='Building customer segments…';
-      else if(users.length<100)lbl.textContent=users.length.toLocaleString()+' synthetic users added…';
-      else lbl.textContent=users.length.toLocaleString()+' / 100k users simulated…';
+      else if(simCount<1000)lbl.textContent='Mapping synthetic population…';
+      else if(simCount<TARGET_USERS)lbl.textContent='Running Monte Carlo scenarios…';
+      else lbl.textContent='Simulation complete — finalising results…';
+    }}
+    if(ctr){{
+      const k=simCount>=1000?(simCount/1000).toFixed(1)+'k':simCount.toLocaleString();
+      ctr.textContent=k+' / '+TARGET_LABEL;
     }}
 
     requestAnimationFrame(draw);
@@ -193,7 +243,7 @@ if cfg["run_btn"]:
     col_log, col_graph = st.columns([5, 6])
 
     with col_graph:
-        components.html(_build_sim_animation_html(is_dark), height=440)
+        components.html(_build_sim_animation_html(is_dark, n_users=cfg["n_users"]), height=440)
 
     with col_log:
         with st.status("Running VINGEL simulation…", expanded=True) as sim_status:
@@ -239,6 +289,19 @@ if cfg["run_btn"]:
                 f"⚡  Simulation complete — "
                 f"{n_u:,} users · {n_m}-month funnel · {n_mc} Monte Carlo runs"
             )
+
+            # Show Monad on-chain result summary
+            on_chain = result.get("on_chain")
+            if on_chain:
+                if on_chain.get("job_id"):
+                    bal = on_chain.get("balance_mon")
+                    bal_str = f" · {bal:.4f} MON" if bal is not None else ""
+                    st.write(f"💜  Monad anchored — Job: `{on_chain['job_id'][:18]}…`{bal_str}")
+                elif on_chain.get("rpc_reachable"):
+                    bal = on_chain.get("balance_mon")
+                    st.write(f"🟢  Monad connected — balance: {bal:.4f} MON · SimGate not deployed (hashes computed locally)")
+                else:
+                    st.write("🟡  Monad RPC unreachable — simulation ran locally (blockchain not required)")
 
             st.write("🌐  Pushing population nodes to Neo4j — building graph…")
             try:
@@ -313,41 +376,82 @@ if result:
     st.markdown("<div style='margin:.5rem 0'></div>", unsafe_allow_html=True)
 
     on_chain = result.get("on_chain")
-    if on_chain and on_chain.get("job_id"):
-        # Display Monad on-chain gating block
+    if on_chain:
+        gated        = on_chain.get("gated", False)
+        job_id       = on_chain.get("job_id")
+        rpc_ok       = on_chain.get("rpc_reachable", False)
+        chain_err    = on_chain.get("chain_error")
+        bal_mon      = on_chain.get("balance_mon")
+        wallet_addr  = on_chain.get("wallet", "")
+        product_hash = on_chain.get("product_hash", "")
+        result_hash  = on_chain.get("result_hash", "")
+        req_tx       = on_chain.get("request_tx_url")
+        anc_tx       = on_chain.get("anchor_tx_url")
+
+        # Status badge config
+        if gated and job_id:
+            badge_color, badge_text, badge_emoji = "#818cf8", "ANCHORED ON MONAD", "💜"
+        elif rpc_ok:
+            badge_color, badge_text, badge_emoji = "#34d399", "MONAD CONNECTED", "🟢"
+        else:
+            badge_color, badge_text, badge_emoji = "#f59e0b", "MONAD FALLBACK", "🟡"
+
+        bal_display = f"{bal_mon:.6f} MON" if bal_mon is not None else "RPC unreachable"
+
+        tx_links = ""
+        if req_tx and not req_tx.startswith("anchor_error"):
+            tx_links += f'<a href="{req_tx}" target="_blank" style="color:#34d399;text-decoration:none;font-weight:600;">📄 Request Tx ↗</a>&nbsp;&nbsp;'
+        if anc_tx and not anc_tx.startswith("anchor_error"):
+            tx_links += f'<a href="{anc_tx}" target="_blank" style="color:#34d399;text-decoration:none;font-weight:600;">📄 Anchor Tx ↗</a>&nbsp;&nbsp;'
+        if job_id:
+            tx_links += f'<a href="{BACKEND}/api/simulate/verify/{job_id}" target="_blank" style="color:#a78bfa;text-decoration:none;font-weight:600;">🔍 Verify Proof ↗</a>'
+
+        setup_hint = ""
+        if not gated:
+            setup_hint = (
+                f'<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;'
+                f'background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);'
+                f'border-radius:6px;font-size:0.8rem;color:#fbbf24;">'
+                f'⚙️ <b>Deploy VingelSimGate.sol</b> + set <code>MONAD_PRIVATE_KEY</code> '
+                f'&amp; <code>MONAD_SIMGATE_ADDRESS</code> in <code>.env</code> to enable '
+                f'full on-chain gating &amp; job anchoring.</div>'
+            )
+
         st.markdown(
             f"""
-            <div style="background-color: {'#13141f' if is_dark else '#f3f4f6'}; border: 1px solid {'#2b2d42' if is_dark else '#e5e7eb'}; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem;">
-                    <span style="font-size: 1.25rem;">💜</span>
-                    <h4 style="margin: 0; color: #818cf8; font-family: 'Inter', sans-serif; font-weight: 700;">Monad On-Chain Simulation Proof</h4>
+            <div style="background-color: {'#13141f' if is_dark else '#f3f4f6'}; border: 1px solid {'#2b2d42' if is_dark else '#e5e7eb'}; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.85rem;flex-wrap:wrap;">
+                    <span style="font-size:1.2rem;">{badge_emoji}</span>
+                    <h4 style="margin:0;color:{badge_color};font-family:'Inter',sans-serif;font-weight:700;">Monad Blockchain Integration</h4>
+                    <span style="background:{badge_color}22;border:1px solid {badge_color};color:{badge_color};padding:0.15rem 0.6rem;border-radius:9999px;font-size:0.7rem;font-weight:800;letter-spacing:.08em;">{badge_text}</span>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; font-size: 0.85rem; font-family: 'Inter', sans-serif;">
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0.85rem;font-size:0.83rem;font-family:'Inter',sans-serif;">
                     <div>
-                        <span style="color: #6b7280; font-weight: 600;">Job ID:</span>
-                        <code style="word-break: break-all; background: {'#252630' if is_dark else '#e5e7eb'}; padding: 0.2rem 0.4rem; border-radius: 4px; color: #f472b6;">{on_chain['job_id']}</code>
+                        <span style="color:#6b7280;font-weight:600;">Wallet:</span><br>
+                        <code style="word-break:break-all;background:{'#252630' if is_dark else '#e5e7eb'};padding:0.2rem 0.4rem;border-radius:4px;color:#34d399;">{wallet_addr}</code>
                     </div>
                     <div>
-                        <span style="color: #6b7280; font-weight: 600;">User Wallet:</span>
-                        <code style="word-break: break-all; background: {'#252630' if is_dark else '#e5e7eb'}; padding: 0.2rem 0.4rem; border-radius: 4px; color: #34d399;">{on_chain['wallet']}</code>
+                        <span style="color:#6b7280;font-weight:600;">MON Balance:</span><br>
+                        <span style="color:{'#34d399' if rpc_ok else '#f59e0b'};">{bal_display}</span>
                     </div>
                     <div>
-                        <span style="color: #6b7280; font-weight: 600;">Product Hash:</span>
-                        <code style="word-break: break-all; background: {'#252630' if is_dark else '#e5e7eb'}; padding: 0.2rem 0.4rem; border-radius: 4px; color: #9ca3af;">{on_chain['product_hash'][:16]}...</code>
+                        <span style="color:#6b7280;font-weight:600;">Product Hash:</span><br>
+                        <code style="word-break:break-all;background:{'#252630' if is_dark else '#e5e7eb'};padding:0.2rem 0.4rem;border-radius:4px;color:#9ca3af;">{product_hash[:20]}…</code>
                     </div>
                     <div>
-                        <span style="color: #6b7280; font-weight: 600;">Result Hash:</span>
-                        <code style="word-break: break-all; background: {'#252630' if is_dark else '#e5e7eb'}; padding: 0.2rem 0.4rem; border-radius: 4px; color: #9ca3af;">{on_chain['result_hash'][:16]}...</code>
+                        <span style="color:#6b7280;font-weight:600;">Result Hash:</span><br>
+                        <code style="word-break:break-all;background:{'#252630' if is_dark else '#e5e7eb'};padding:0.2rem 0.4rem;border-radius:4px;color:#9ca3af;">{result_hash[:20]}…</code>
                     </div>
+                    {f'<div><span style="color:#6b7280;font-weight:600;">Job ID:</span><br><code style="word-break:break-all;background:{"#252630" if is_dark else "#e5e7eb"};padding:0.2rem 0.4rem;border-radius:4px;color:#f472b6;">{job_id}</code></div>' if job_id else ''}
                 </div>
-                <div style="margin-top: 1rem; border-top: 1px solid {'#1f202e' if is_dark else '#e5e7eb'}; padding-top: 0.75rem; display: flex; flex-wrap: wrap; gap: 1rem; font-size: 0.85rem;">
-                    <a href="{on_chain['request_tx_url']}" target="_blank" style="color: #34d399; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem;">📄 View Request Tx ↗</a>
-                    <a href="{on_chain['anchor_tx_url']}" target="_blank" style="color: #34d399; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem;">📄 View Anchor Tx ↗</a>
-                    <a href="{BACKEND}/api/simulate/verify/{on_chain['job_id']}" target="_blank" style="color: #a78bfa; text-decoration: none; font-weight: 600; display: inline-flex; align-items: center; gap: 0.25rem;">🔍 API Proof Check ↗</a>
-                </div>
+                {f'<div style="margin-top:0.85rem;border-top:1px solid {"#1f202e" if is_dark else "#e5e7eb"};padding-top:0.65rem;display:flex;flex-wrap:wrap;gap:0.75rem;font-size:0.83rem;">{tx_links}</div>' if tx_links else ''}
+                {f'<div style="margin-top:0.6rem;font-size:0.78rem;color:#ef4444;">⚠️ Chain error: {chain_err[:100]}</div>' if chain_err else ''}
+                {setup_hint}
             </div>
             """,
             unsafe_allow_html=True
         )
+
+
 
 pg.run()
