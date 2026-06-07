@@ -35,7 +35,7 @@ call :install
 echo.
 echo Starting both services (backend in background)...
 set "PYTHONPATH=%ROOT%"
-start "VINGEL-Backend" cmd /c "cd /d "%ROOT%" && set PYTHONPATH=%ROOT% && python -m uvicorn backend.main:app --port 8000"
+start "VINGEL-Backend" cmd /c "cd /d "%ROOT%" && set PYTHONPATH=%ROOT% && python -m uvicorn backend.main:app --port 8000 --reload"
 python -m streamlit run frontend\app.py --server.port 8501
 goto end
 

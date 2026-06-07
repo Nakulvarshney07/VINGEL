@@ -207,43 +207,56 @@ def simulate_gated(req: GatedSimRequest):
     """
     Monad-gated simulation.
 
-    Workflow:
+    Workflow (when SimGate is configured):
       1. Check user wallet holds ≥ 0.01 MON on Monad testnet.
       2. Call VingelSimGate.requestSimulation() — assigns job_id on-chain.
       3. Run the Sarvam AI + NumPy simulation off-chain.
       4. Call VingelSimGate.storeResult()       — anchors result hash on-chain.
       5. Return full result + job_id + Monad explorer links.
 
-    If MONAD_SIMGATE_ADDRESS / MONAD_PRIVATE_KEY are not set, falls back to
-    the standard /api/simulate/full endpoint (no blockchain interaction).
+    Graceful degradation:
+    - If MONAD_SIMGATE_ADDRESS / MONAD_PRIVATE_KEY are not set → simulation
+      still runs; on_chain.gated = false, balance checked read-only.
+    - If Monad RPC is unreachable → simulation still runs; balance = None.
+    - On-chain steps are individually guarded so one failure never blocks result.
     """
     gate = _simgate()
 
-    # ── Balance gate ─────────────────────────────────────────────────────────
+    # ── Balance check (best-effort, non-blocking when RPC unreachable) ────────
+    balance_mon: Optional[float] = None
+    rpc_ok = False
     try:
         bal = gate.check_balance(req.wallet_address)
+        balance_mon = bal["balance_mon"]
+        rpc_ok = True
+
+        # Only hard-fail on insufficient balance when SimGate IS configured
+        if gate.is_configured and not bal["ok"]:
+            raise HTTPException(
+                status_code=402,
+                detail=(
+                    f"Insufficient MON balance. "
+                    f"Wallet {req.wallet_address} holds {bal['balance_mon']:.6f} MON — "
+                    f"need at least {bal['required_mon']} MON. "
+                    f"Get free testnet MON at https://faucet.monad.xyz"
+                ),
+            )
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=503, detail=f"Monad RPC error: {e}")
+        # RPC unreachable or address invalid — still run simulation
+        balance_mon = None
+        rpc_ok = False
 
-    if not bal["ok"]:
-        raise HTTPException(
-            status_code=402,
-            detail=(
-                f"Insufficient MON balance. "
-                f"Wallet {req.wallet_address} holds {bal['balance_mon']:.6f} MON — "
-                f"need at least {bal['required_mon']} MON. "
-                f"Get free testnet MON at https://faucet.monad.xyz"
-            ),
-        )
+    # ── Product hash (fingerprint for on-chain record) ────────────────────────
+    product_json = req.product.model_dump_json()
+    product_hash = _hashlib.sha256(product_json.encode()).hexdigest()
 
-    # ── Product hash (fingerprint for on-chain record) ───────────────────────
-    product_json   = req.product.model_dump_json()
-    product_hash   = _hashlib.sha256(product_json.encode()).hexdigest()
-
-    # ── On-chain: request simulation (assigns job_id) ────────────────────────
+    # ── On-chain: request simulation (assigns job_id) ─────────────────────────
     sim_gate_mode  = gate.is_configured
     job_id         = None
     request_tx_url = None
+    chain_error    = None
 
     if sim_gate_mode:
         try:
@@ -251,7 +264,8 @@ def simulate_gated(req: GatedSimRequest):
             job_id         = req_result["job_id"]
             request_tx_url = req_result["tx_url"]
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"On-chain request failed: {e}")
+            chain_error    = str(e)
+            # Don't hard-fail — proceed with simulation
 
     # ── Off-chain: run simulation ─────────────────────────────────────────────
     sim_req = SimulateRequest(product=req.product, config=req.config)
@@ -262,14 +276,13 @@ def simulate_gated(req: GatedSimRequest):
     result_json  = _json.dumps(result_dict, default=str, sort_keys=True)
     result_hash  = _hashlib.sha256(result_json.encode()).hexdigest()
 
-    # ── On-chain: anchor result hash ─────────────────────────────────────────
+    # ── On-chain: anchor result hash ──────────────────────────────────────────
     anchor_tx_url = None
     if sim_gate_mode and job_id:
         try:
             anc           = gate.store_result(job_id, result_hash)
             anchor_tx_url = anc["tx_url"]
         except Exception as e:
-            # Simulation succeeded — don't fail the whole request over anchoring
             anchor_tx_url = f"anchor_error: {e}"
 
     return {
@@ -281,11 +294,14 @@ def simulate_gated(req: GatedSimRequest):
             "request_tx_url":  request_tx_url,
             "anchor_tx_url":   anchor_tx_url,
             "wallet":          req.wallet_address,
-            "balance_mon":     bal["balance_mon"],
+            "balance_mon":     balance_mon,
+            "rpc_reachable":   rpc_ok,
+            "chain_error":     chain_error,
             "explorer":        "https://testnet.monadexplorer.com",
             "gated":           sim_gate_mode,
         },
     }
+
 
 
 @app.get("/api/simulate/verify/{job_id}", tags=["simulate"])
