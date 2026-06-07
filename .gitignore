@@ -1,8 +1,8 @@
 # Environment & secrets
 .env
 
-# Windows run script (generated)
-run.bat
+
+
 
 # Python cache (all directories, recursive)
 __pycache__/
