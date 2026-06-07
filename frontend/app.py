@@ -379,9 +379,9 @@ if result:
     if on_chain:
         gated        = on_chain.get("gated", False)
         job_id       = on_chain.get("job_id")
-        rpc_ok       = on_chain.get("rpc_reachable", False)
-        chain_err    = on_chain.get("chain_error")
         bal_mon      = on_chain.get("balance_mon")
+        rpc_ok       = on_chain.get("rpc_reachable", bal_mon is not None)
+        chain_err    = on_chain.get("chain_error")
         wallet_addr  = on_chain.get("wallet", "")
         product_hash = on_chain.get("product_hash", "")
         result_hash  = on_chain.get("result_hash", "")
@@ -407,50 +407,47 @@ if result:
             tx_links += f'<a href="{BACKEND}/api/simulate/verify/{job_id}" target="_blank" style="color:#a78bfa;text-decoration:none;font-weight:600;">🔍 Verify Proof ↗</a>'
 
         setup_hint = ""
-        if not gated:
-            setup_hint = (
-                f'<div style="margin-top:0.75rem;padding:0.6rem 0.9rem;'
-                f'background:rgba(245,158,11,.07);border:1px solid rgba(245,158,11,.25);'
-                f'border-radius:6px;font-size:0.8rem;color:#fbbf24;">'
-                f'⚙️ <b>Deploy VingelSimGate.sol</b> + set <code>MONAD_PRIVATE_KEY</code> '
-                f'&amp; <code>MONAD_SIMGATE_ADDRESS</code> in <code>.env</code> to enable '
-                f'full on-chain gating &amp; job anchoring.</div>'
-            )
 
-        st.markdown(
-            f"""
-            <div style="background-color: {'#13141f' if is_dark else '#f3f4f6'}; border: 1px solid {'#2b2d42' if is_dark else '#e5e7eb'}; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.85rem;flex-wrap:wrap;">
-                    <span style="font-size:1.2rem;">{badge_emoji}</span>
-                    <h4 style="margin:0;color:{badge_color};font-family:'Inter',sans-serif;font-weight:700;">Monad Blockchain Integration</h4>
-                    <span style="background:{badge_color}22;border:1px solid {badge_color};color:{badge_color};padding:0.15rem 0.6rem;border-radius:9999px;font-size:0.7rem;font-weight:800;letter-spacing:.08em;">{badge_text}</span>
-                </div>
-                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0.85rem;font-size:0.83rem;font-family:'Inter',sans-serif;">
-                    <div>
-                        <span style="color:#6b7280;font-weight:600;">Wallet:</span><br>
-                        <code style="word-break:break-all;background:{'#252630' if is_dark else '#e5e7eb'};padding:0.2rem 0.4rem;border-radius:4px;color:#34d399;">{wallet_addr}</code>
-                    </div>
-                    <div>
-                        <span style="color:#6b7280;font-weight:600;">MON Balance:</span><br>
-                        <span style="color:{'#34d399' if rpc_ok else '#f59e0b'};">{bal_display}</span>
-                    </div>
-                    <div>
-                        <span style="color:#6b7280;font-weight:600;">Product Hash:</span><br>
-                        <code style="word-break:break-all;background:{'#252630' if is_dark else '#e5e7eb'};padding:0.2rem 0.4rem;border-radius:4px;color:#9ca3af;">{product_hash[:20]}…</code>
-                    </div>
-                    <div>
-                        <span style="color:#6b7280;font-weight:600;">Result Hash:</span><br>
-                        <code style="word-break:break-all;background:{'#252630' if is_dark else '#e5e7eb'};padding:0.2rem 0.4rem;border-radius:4px;color:#9ca3af;">{result_hash[:20]}…</code>
-                    </div>
-                    {f'<div><span style="color:#6b7280;font-weight:600;">Job ID:</span><br><code style="word-break:break-all;background:{"#252630" if is_dark else "#e5e7eb"};padding:0.2rem 0.4rem;border-radius:4px;color:#f472b6;">{job_id}</code></div>' if job_id else ''}
-                </div>
-                {f'<div style="margin-top:0.85rem;border-top:1px solid {"#1f202e" if is_dark else "#e5e7eb"};padding-top:0.65rem;display:flex;flex-wrap:wrap;gap:0.75rem;font-size:0.83rem;">{tx_links}</div>' if tx_links else ''}
-                {f'<div style="margin-top:0.6rem;font-size:0.78rem;color:#ef4444;">⚠️ Chain error: {chain_err[:100]}</div>' if chain_err else ''}
-                {setup_hint}
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+        html_str = f"""<div style="background-color: {'#13141f' if is_dark else '#f3f4f6'}; border: 1px solid {'#2b2d42' if is_dark else '#e5e7eb'}; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+<div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.85rem;flex-wrap:wrap;">
+    <span style="font-size:1.2rem;">{badge_emoji}</span>
+    <h4 style="margin:0;color:{badge_color};font-family:'Inter',sans-serif;font-weight:700;">Monad Blockchain Integration</h4>
+    <span style="background:{badge_color}22;border:1px solid {badge_color};color:{badge_color};padding:0.15rem 0.6rem;border-radius:9999px;font-size:0.7rem;font-weight:800;letter-spacing:.08em;">{badge_text}</span>
+</div>
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:0.85rem;font-size:0.83rem;font-family:'Inter',sans-serif;">
+    <div>
+        <span style="color:#6b7280;font-weight:600;">Wallet:</span><br>
+        <code style="word-break:break-all;background:{'#252630' if is_dark else '#e5e7eb'};padding:0.2rem 0.4rem;border-radius:4px;color:#34d399;">{wallet_addr}</code>
+    </div>
+    <div>
+        <span style="color:#6b7280;font-weight:600;">MON Balance:</span><br>
+        <span style="color:{'#34d399' if rpc_ok else '#f59e0b'};">{bal_display}</span>
+    </div>
+    <div>
+        <span style="color:#6b7280;font-weight:600;">Product Hash:</span><br>
+        <code style="word-break:break-all;background:{'#252630' if is_dark else '#e5e7eb'};padding:0.2rem 0.4rem;border-radius:4px;color:#9ca3af;">{product_hash[:20]}…</code>
+    </div>
+    <div>
+        <span style="color:#6b7280;font-weight:600;">Result Hash:</span><br>
+        <code style="word-break:break-all;background:{'#252630' if is_dark else '#e5e7eb'};padding:0.2rem 0.4rem;border-radius:4px;color:#9ca3af;">{result_hash[:20]}…</code>
+    </div>"""
+        if job_id:
+            html_str += f'\n    <div><span style="color:#6b7280;font-weight:600;">Job ID:</span><br><code style="word-break:break-all;background:{"#252630" if is_dark else "#e5e7eb"};padding:0.2rem 0.4rem;border-radius:4px;color:#f472b6;">{job_id}</code></div>'
+            
+        html_str += "\n</div>\n"
+
+        if tx_links:
+            html_str += f'<div style="margin-top:0.85rem;border-top:1px solid {"#1f202e" if is_dark else "#e5e7eb"};padding-top:0.65rem;display:flex;flex-wrap:wrap;gap:0.75rem;font-size:0.83rem;">{tx_links}</div>\n'
+
+        if chain_err:
+            html_str += f'<div style="margin-top:0.6rem;font-size:0.78rem;color:#ef4444;">⚠️ Chain error: {chain_err[:100]}</div>\n'
+
+        if setup_hint:
+            html_str += setup_hint
+
+        html_str += "</div>"
+
+        st.markdown(html_str, unsafe_allow_html=True)
 
 
 
